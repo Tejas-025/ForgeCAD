@@ -1,0 +1,1864 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>PromptCAD v4.0 — Forge Edition</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@300;400;500;700&family=Space+Grotesk:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    fontFamily: {
+                        display: ['Space Grotesk', 'sans-serif'],
+                        mono: ['JetBrains Mono', 'monospace'],
+                    }
+                }
+            }
+        }
+    </script>
+    <style>
+        :root {
+            --bg: #06080f;
+            --panel: rgba(12, 18, 35, 0.85);
+            --card: rgba(18, 28, 52, 0.9);
+            --border: rgba(30, 50, 90, 0.5);
+            --accent: #ff7b00;
+            --accent-dim: #994a00;
+            --accent-glow: rgba(255, 123, 0, 0.2);
+            --secondary: #00e5a0;
+            --tertiary: #6366f1;
+            --fg: #e8edf5;
+            --muted: #5a6d8e;
+            --danger: #ef4444;
+        }
+
+        body.light-theme {
+            --bg: #f8fafc;
+            --panel: rgba(255, 255, 255, 0.85);
+            --card: rgba(241, 245, 249, 0.9);
+            --border: rgba(148, 163, 184, 0.35);
+            --accent: #e25c00;
+            --accent-dim: #ff9d40;
+            --accent-glow: rgba(226, 92, 0, 0.15);
+            --secondary: #059669;
+            --tertiary: #4f46e5;
+            --fg: #0f172a;
+            --muted: #64748b;
+        }
+        * { box-sizing: border-box; }
+        body { background: var(--bg); color: var(--fg); font-family: 'Space Grotesk', sans-serif; overflow: hidden; margin: 0; }
+        ::-webkit-scrollbar { width: 6px; }
+        ::-webkit-scrollbar-track { background: transparent; }
+        ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
+        ::-webkit-scrollbar-thumb:hover { background: var(--muted); }
+
+        .glass {
+            background: var(--panel);
+            backdrop-filter: blur(12px);
+            -webkit-backdrop-filter: blur(12px);
+            border: 1px solid var(--border);
+        }
+
+        /* Forms */
+        input[type="range"] {
+            -webkit-appearance: none; appearance: none;
+            width: 100%; height: 4px;
+            background: var(--border); border-radius: 2px; outline: none; cursor: pointer;
+        }
+        input[type="range"]::-webkit-slider-thumb {
+            -webkit-appearance: none; appearance: none;
+            width: 14px; height: 14px; border-radius: 50%;
+            background: var(--accent); cursor: pointer;
+            border: 2px solid var(--bg);
+            box-shadow: 0 0 10px var(--accent-glow);
+            transition: transform 0.15s;
+        }
+        input[type="range"]::-webkit-slider-thumb:hover { transform: scale(1.2); }
+
+        input[type="number"] {
+            -moz-appearance: textfield;
+            background: var(--card); border: 1px solid var(--border);
+            color: var(--accent); font-family: 'JetBrains Mono', monospace;
+            font-size: 13px; padding: 4px 6px; border-radius: 6px;
+            width: 72px; text-align: center; outline: none; transition: border-color 0.2s;
+        }
+        input[type="number"]:focus { border-color: var(--accent); }
+        input[type="number"]::-webkit-inner-spin-button,
+        input[type="number"]::-webkit-outer-spin-button { -webkit-appearance: none; }
+
+        /* Main Prompt Input */
+        .prompt-container {
+            position: absolute; top: 16px; left: 50%; transform: translateX(-50%);
+            width: 600px; max-width: 90vw; z-index: 40;
+        }
+        .prompt-input {
+            width: 100%; padding: 16px 56px 16px 20px;
+            background: var(--card); border: 1px solid var(--border);
+            border-radius: 12px; color: var(--fg); font-size: 16px;
+            box-shadow: 0 8px 32px rgba(0,0,0,0.4);
+            transition: all 0.3s; outline: none;
+            backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px);
+        }
+        .prompt-input:focus { border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-glow), 0 8px 32px rgba(0,0,0,0.6); }
+        .prompt-input::placeholder { color: var(--muted); }
+        
+        .gen-btn {
+            position: absolute; right: 8px; top: 50%; transform: translateY(-50%);
+            width: 40px; height: 40px; border-radius: 8px;
+            background: var(--accent); color: var(--bg); border: none;
+            cursor: pointer; display: flex; align-items: center; justify-content: center;
+            font-size: 16px; transition: all 0.2s;
+        }
+        .gen-btn:hover { background: #ffa140; box-shadow: 0 0 16px var(--accent-glow); }
+
+        /* Autocomplete */
+        .autocomplete-dropdown {
+            position: absolute; top: calc(100% + 8px); left: 0; width: 100%;
+            background: var(--card); border: 1px solid var(--border);
+            border-radius: 12px; overflow: hidden; box-shadow: 0 8px 32px rgba(0,0,0,0.5);
+            display: none; backdrop-filter: blur(12px); z-index: 41;
+        }
+        .autocomplete-dropdown.active { display: block; animation: slideDown 0.2s ease-out; }
+        .ac-item {
+            padding: 10px 16px; cursor: pointer; display: flex; justify-content: space-between;
+            align-items: center; border-bottom: 1px solid var(--border); transition: background 0.1s;
+        }
+        .ac-item:last-child { border-bottom: none; }
+        .ac-item:hover, .ac-item.selected { background: rgba(255, 123, 0, 0.1); }
+        .ac-keyword { color: var(--fg); font-weight: 500; }
+        .ac-type { font-size: 11px; color: var(--muted); text-transform: uppercase; letter-spacing: 0.5px; }
+
+        /* Sidebar & Panels */
+        .sidebar-right {
+            position: absolute; right: 16px; top: 80px; bottom: 40px;
+            width: 340px; display: flex; flex-direction: column; gap: 16px; z-index: 30; pointer-events: none;
+        }
+        .panel { pointer-events: auto; border-radius: 12px; overflow: hidden; flex-shrink: 0; }
+        .panel-header {
+            padding: 12px 16px; background: rgba(0,0,0,0.2); border-bottom: 1px solid var(--border);
+            display: flex; justify-content: space-between; align-items: center;
+        }
+        .panel-title { font-size: 12px; font-weight: 600; text-transform: uppercase; letter-spacing: 1px; color: var(--fg); }
+        .panel-body { padding: 16px; max-height: 400px; overflow-y: auto; }
+
+        /* Scene Graph */
+        .scene-item {
+            display: flex; justify-content: space-between; align-items: center;
+            padding: 8px 12px; background: rgba(0,0,0,0.2); border: 1px solid transparent;
+            border-radius: 8px; margin-bottom: 8px; cursor: pointer; transition: all 0.2s;
+        }
+        .scene-item:hover { border-color: var(--border); background: rgba(255,255,255,0.02); }
+        .scene-item.active { border-color: var(--accent); background: var(--accent-glow); }
+        .scene-item-name { font-family: 'JetBrains Mono', monospace; font-size: 13px; color: var(--fg); }
+        .scene-item-actions button { color: var(--muted); background: transparent; border: none; cursor: pointer; padding: 4px; transition: color 0.2s; }
+        .scene-item-actions button:hover { color: var(--danger); }
+
+        /* Buttons & Tags */
+        .tool-btn {
+            width: 36px; height: 36px; border-radius: 8px; background: var(--card); border: 1px solid var(--border);
+            color: var(--muted); cursor: pointer; display: flex; align-items: center; justify-content: center;
+            font-size: 14px; transition: all 0.2s;
+        }
+        .tool-btn:hover { color: var(--fg); border-color: var(--muted); }
+        .tool-btn.active { color: var(--accent); border-color: var(--accent); background: var(--accent-glow); }
+
+        .btn-primary {
+            padding: 8px 16px; border-radius: 8px; background: var(--accent); color: #ffffff;
+            border: none; font-weight: 600; cursor: pointer; transition: all 0.2s; width: 100%; display: flex; justify-content: center; align-items: center; gap: 8px;
+        }
+        .btn-primary:hover { background: #ffa140; box-shadow: 0 0 16px var(--accent-glow); }
+        .btn-primary:disabled { opacity: 0.5; cursor: not-allowed; }
+
+        .btn-secondary {
+            padding: 8px 16px; border-radius: 8px; background: var(--card); border: 1px solid var(--border);
+            color: var(--fg); font-weight: 600; cursor: pointer; transition: all 0.2s; display: flex; justify-content: center; align-items: center; gap: 8px;
+        }
+        .btn-secondary:hover { background: var(--border); color: var(--accent); }
+        .btn-secondary:disabled { opacity: 0.5; cursor: not-allowed; }
+        
+        .tag-grid { display: flex; flex-wrap: wrap; gap: 6px; }
+        .tag {
+            padding: 4px 10px; border-radius: 6px; font-size: 11px; font-family: 'JetBrains Mono', monospace;
+            background: rgba(0,0,0,0.3); border: 1px solid var(--border); color: var(--muted); cursor: pointer; transition: all 0.2s;
+        }
+        .tag:hover { color: var(--accent); border-color: var(--accent); background: var(--accent-glow); }
+
+        /* Props Table */
+        .prop-row { display: flex; justify-content: space-between; padding: 6px 0; border-bottom: 1px solid var(--border); }
+        .prop-row:last-child { border-bottom: none; }
+        .prop-label { color: var(--muted); font-size: 12px; }
+        .prop-val { color: var(--fg); font-family: 'JetBrains Mono', monospace; font-size: 12px; font-weight: 500; }
+
+        /* Dim Group */
+        .dim-group { margin-bottom: 16px; animation: slideInRight 0.3s ease-out backwards; }
+        
+        /* Status Bar */
+        .status-bar {
+            position: absolute; bottom: 0; left: 0; width: 100%; height: 28px;
+            background: var(--panel); border-top: 1px solid var(--border);
+            display: flex; justify-content: space-between; align-items: center;
+            padding: 0 16px; font-size: 11px; font-family: 'JetBrains Mono', monospace; color: var(--muted); z-index: 50;
+        }
+        .status-item span { color: var(--fg); font-weight: 500; margin-left: 4px; }
+
+        /* Helpers */
+        #viewport { position: absolute; top: 0; left: 0; width: 100%; height: 100%; z-index: 10; }
+        .hidden { display: none !important; }
+        
+        /* Toolbar Left */
+        .toolbar-left {
+            position: absolute; left: 16px; top: 80px; display: flex; flex-direction: column; gap: 8px; z-index: 30;
+        }
+
+        /* Toasts */
+        .toast-container { position: absolute; bottom: 40px; left: 16px; z-index: 60; display: flex; flex-direction: column; gap: 8px; pointer-events: none; }
+        .toast {
+            padding: 10px 16px; border-radius: 8px; font-size: 13px; background: var(--card);
+            border: 1px solid var(--border); color: var(--fg); box-shadow: 0 4px 12px rgba(0,0,0,0.5);
+            display: flex; align-items: center; gap: 8px; animation: slideUp 0.3s ease-out; pointer-events: auto;
+        }
+
+        /* Keyframes */
+        @keyframes slideDown { from { opacity: 0; transform: translateY(-10px); } to { opacity: 1; transform: translateY(0); } }
+        @keyframes slideUp { from { opacity: 0; transform: translateY(20px); } to { opacity: 1; transform: translateY(0); } }
+        @keyframes slideInRight { from { opacity: 0; transform: translateX(20px); } to { opacity: 1; transform: translateX(0); } }
+        @keyframes spin { 100% { transform: rotate(360deg); } }
+        .spinner { animation: spin 1s linear infinite; }
+    </style>
+</head>
+<body>
+
+    <!-- 3D Viewport -->
+    <canvas id="viewport"></canvas>
+
+    <!-- Top Navigation / Brand -->
+    <div class="absolute top-4 left-4 z-40 flex items-center gap-3">
+        <div class="w-10 h-10 rounded-xl flex items-center justify-center glass border-accent" style="border-width: 1px; background: rgba(255,123,0,0.1);">
+            <i class="fa-solid fa-cube text-accent text-lg"></i>
+        </div>
+        <div>
+            <div class="font-display font-bold text-lg leading-tight tracking-tight text-[var(--fg)]">PromptCAD</div>
+            <div class="text-[10px] font-mono text-muted uppercase tracking-widest">Forge Edition</div>
+        </div>
+    </div>
+
+    <!-- Main Prompt Input -->
+    <div class="prompt-container">
+        <div class="relative">
+            <input type="text" id="promptInput" class="prompt-input" placeholder="Try 'box with a hole', 'threaded bolt', or 'gear'..." autocomplete="off" spellcheck="false">
+            <button class="gen-btn" id="generateBtn" title="Generate (Enter)">
+                <i class="fa-solid fa-hammer"></i>
+            </button>
+        </div>
+        <div class="autocomplete-dropdown" id="autocompleteDropdown">
+            <!-- Populated via JS -->
+        </div>
+        <div class="mt-2 text-center text-xs text-muted flex items-center justify-center gap-4">
+            <span><kbd class="font-mono bg-black/30 px-1 rounded border border-white/10">Enter</kbd> Build</span>
+            <span><kbd class="font-mono bg-black/30 px-1 rounded border border-white/10">↑/↓</kbd> History</span>
+        </div>
+    </div>
+
+    <!-- Left Toolbar (View Controls) -->
+    <div class="toolbar-left">
+        <button class="tool-btn active" id="toggleGrid" title="Toggle Grid"><i class="fa-solid fa-grip"></i></button>
+        <button class="tool-btn active" id="toggleEdges" title="Toggle Edges"><i class="fa-solid fa-border-all"></i></button>
+        <button class="tool-btn active" id="toggleDims" title="Toggle Dimensions"><i class="fa-solid fa-ruler-combined"></i></button>
+        <div class="w-8 h-px bg-white/10 my-1 mx-auto"></div>
+        <button class="tool-btn" id="toggleRotate" title="Auto Rotate"><i class="fa-solid fa-rotate"></i></button>
+        <button class="tool-btn" id="resetView" title="Reset Camera"><i class="fa-solid fa-expand"></i></button>
+        <div class="w-8 h-px bg-white/10 my-1 mx-auto"></div>
+        <button class="tool-btn" id="toggleTheme" title="Cycle Material"><i class="fa-solid fa-palette"></i></button>
+        <button class="tool-btn" id="toggleDarkLight" title="Toggle Light/Dark Mode"><i class="fa-solid fa-moon"></i></button>
+    </div>
+
+    <!-- Right Sidebar (Panels) -->
+    <div class="sidebar-right">
+        
+        <!-- Scrollable Panels Container -->
+        <div class="flex flex-col gap-4 overflow-y-auto pr-1 pointer-events-auto flex-1">
+            <!-- Scene Graph Panel -->
+            <div class="panel glass">
+                <div class="panel-header">
+                    <span class="panel-title">Scene Assembly</span>
+                    <span class="text-[10px] bg-black/40 px-2 py-0.5 rounded text-muted font-mono" id="partCount">0 parts</span>
+                </div>
+                <div class="panel-body" style="max-height: 200px; padding: 8px;">
+                    <div id="sceneList">
+                        <div class="text-xs text-center text-muted py-4 italic">Scene is empty</div>
+                    </div>
+                    <div class="mt-2 flex gap-2">
+                        <button class="btn-secondary py-1.5 text-xs flex-1" id="clearSceneBtn" disabled>
+                            <i class="fa-solid fa-trash"></i> Clear
+                        </button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Dimensions Panel -->
+            <div class="panel glass" id="dimsPanel" style="display: none;">
+                <div class="panel-header">
+                    <span class="panel-title">Parameters</span>
+                    <span class="text-[10px] text-accent font-mono" id="activeShapeLabel">BOX</span>
+                </div>
+                <div class="panel-body" id="dimControls">
+                    <!-- Populated via JS -->
+                </div>
+            </div>
+
+            <!-- Properties Panel -->
+            <div class="panel glass" id="propsPanel" style="display: none;">
+                <div class="panel-header">
+                    <span class="panel-title">Engineering</span>
+                </div>
+                <div class="panel-body" style="padding: 12px 16px;">
+                    <div id="propsContent"></div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Export -->
+        <div class="panel glass mt-auto pointer-events-auto">
+            <div class="panel-body" style="padding: 12px;">
+                <button class="btn-primary" id="exportBtn" disabled>
+                    <i class="fa-solid fa-download"></i> Export Binary STL
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Toast Notifications -->
+    <div class="toast-container" id="toastContainer"></div>
+
+    <!-- Status Bar -->
+    <div class="status-bar">
+        <div class="flex items-center gap-4">
+            <div class="status-item"><i class="fa-solid fa-circle text-secondary text-[8px] mr-1"></i> Engine: <span class="text-secondary">Ready</span></div>
+            <div class="status-item">CSG: <span id="statCsg">Standby</span></div>
+        </div>
+        <div class="flex items-center gap-4">
+            <div class="status-item">Vertices: <span id="statVerts">0</span></div>
+            <div class="status-item">Faces: <span id="statFaces">0</span></div>
+            <div class="status-item">Est. STL: <span id="statSize">0 KB</span></div>
+        </div>
+    </div>
+
+    <!-- Loading Overlay for CSG -->
+    <div id="loadingOverlay" class="absolute inset-0 bg-black/60 z-50 flex flex-col items-center justify-center hidden backdrop-blur-sm transition-opacity">
+        <i class="fa-solid fa-gear text-accent text-5xl spinner mb-4"></i>
+        <div class="font-display font-bold text-xl">Computing Geometry...</div>
+        <div class="text-sm text-muted mt-2 font-mono">Executing Boolean CSG Operations</div>
+    </div>
+
+    <!-- Import Maps -->
+    <script type="importmap">
+    {
+        "imports": {
+            "three": "https://unpkg.com/three@0.160.0/build/three.module.js",
+            "three/addons/": "https://unpkg.com/three@0.160.0/examples/jsm/",
+            "three-mesh-bvh": "https://unpkg.com/three-mesh-bvh@0.6.8/build/index.module.js",
+            "three-bvh-csg": "https://unpkg.com/three-bvh-csg@0.0.16/build/index.module.js"
+        }
+    }
+    </script>
+
+    <script type="module">
+        import * as THREE from 'three';
+        import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+        import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
+        // Import CSG Library
+        import { SUBTRACTION, ADDITION, INTERSECTION, Evaluator, Brush } from 'three-bvh-csg';
+
+        // ==========================================
+        // 1. ENGINE CONSTANTS & UTILS
+        // ==========================================
+        
+        // Dimension line helper
+        function dl(sx,sy,sz, ex,ey,ez, ox,oy,oz, label) {
+            return { start: new THREE.Vector3(sx,sy,sz), end: new THREE.Vector3(ex,ey,ez), offset: new THREE.Vector3(ox,oy,oz), label };
+        }
+
+        // Generate ID
+        const genId = () => Math.random().toString(36).substring(2, 9);
+
+        // ==========================================
+        // 2. SHAPE LIBRARY (28 Shapes)
+        // ==========================================
+        
+        const SHAPES = {
+            // --- BASIC PRIMITIVES ---
+            box: {
+                keywords: ['box','rectangular prism','block','cuboid','rectangle'], type: 'basic',
+                params: [
+                    { key:'width', label:'Width (X)', def:100, min:1, max:1000, step:1 },
+                    { key:'height', label:'Height (Y)', def:100, min:1, max:1000, step:1 },
+                    { key:'depth', label:'Depth (Z)', def:100, min:1, max:1000, step:1 },
+                ],
+                create: p => { const g = new THREE.BoxGeometry(p.width, p.height, p.depth); g.translate(0, p.height/2, 0); return g; },
+                annotate: p => {
+                    const w=p.width, h=p.height, d=p.depth, o=Math.max(w,h,d)*0.2+20;
+                    return [
+                        dl(-w/2, 0, d/2, w/2, 0, d/2, 0, 0, o, w.toFixed(1)),
+                        dl(w/2, 0, d/2, w/2, h, d/2, o, 0, 0, h.toFixed(1)),
+                        dl(w/2, 0, -d/2, w/2, 0, d/2, o, 0, 0, d.toFixed(1)),
+                    ];
+                },
+                props: p => ({ volume: p.width*p.height*p.depth, surfaceArea: 2*(p.width*p.height+p.height*p.depth+p.width*p.depth) }),
+            },
+            cube: {
+                keywords: ['cube','square block'], type: 'basic',
+                params: [{ key:'side', label:'Side Length', def:100, min:1, max:1000, step:1 }],
+                create: p => { const g = new THREE.BoxGeometry(p.side, p.side, p.side); g.translate(0, p.side/2, 0); return g; },
+                annotate: p => {
+                    const s=p.side, o=s*0.2+20;
+                    return [
+                        dl(-s/2, 0, s/2, s/2, 0, s/2, 0, 0, o, s.toFixed(1)),
+                        dl(s/2, 0, s/2, s/2, s, s/2, o, 0, 0, s.toFixed(1)),
+                    ];
+                },
+                props: p => ({ volume: p.side**3, surfaceArea: 6*p.side**2 }),
+            },
+            cylinder: {
+                keywords: ['cylinder','pillar','rod','barrel'], type: 'basic',
+                params: [
+                    { key:'radius', label:'Radius', def:50, min:1, max:500, step:1 },
+                    { key:'height', label:'Height', def:150, min:1, max:1000, step:1 },
+                ],
+                create: p => { const g = new THREE.CylinderGeometry(p.radius, p.radius, p.height, 64); g.translate(0, p.height/2, 0); return g; },
+                annotate: p => {
+                    const r=p.radius, h=p.height, o=r+20;
+                    return [
+                        dl(0, h, 0, r, h, 0, 0, 20, 0, 'R '+r.toFixed(1)),
+                        dl(r, 0, 0, r, h, 0, o, 0, 0, h.toFixed(1)),
+                    ];
+                },
+                props: p => ({ volume: Math.PI*p.radius**2*p.height, surfaceArea: 2*Math.PI*p.radius*(p.radius+p.height) }),
+            },
+            cone: {
+                keywords: ['cone','funnel'], type: 'basic',
+                params: [
+                    { key:'radius', label:'Base Radius', def:50, min:1, max:500, step:1 },
+                    { key:'height', label:'Height', def:150, min:1, max:1000, step:1 },
+                ],
+                create: p => { const g = new THREE.ConeGeometry(p.radius, p.height, 64); g.translate(0, p.height/2, 0); return g; },
+                annotate: p => {
+                    const r=p.radius, h=p.height, o=r+20;
+                    return [
+                        dl(0, 0, 0, r, 0, 0, 0, 0, 20, 'R '+r.toFixed(1)),
+                        dl(r, 0, 0, 0, h, 0, o, 0, 0, h.toFixed(1)),
+                    ];
+                },
+                props: p => {
+                    const sl = Math.sqrt(p.radius**2+p.height**2);
+                    return { volume: Math.PI*p.radius**2*p.height/3, surfaceArea: Math.PI*p.radius*(p.radius+sl) };
+                },
+            },
+            sphere: {
+                keywords: ['sphere','ball','globe','orb'], type: 'basic',
+                params: [{ key:'radius', label:'Radius', def:80, min:1, max:500, step:1 }],
+                create: p => { const g = new THREE.SphereGeometry(p.radius, 64, 64); g.translate(0, p.radius, 0); return g; },
+                annotate: p => [dl(0, p.radius, 0, p.radius, p.radius, 0, 0, 20, 20, 'R '+p.radius.toFixed(1))],
+                props: p => ({ volume: 4*Math.PI*p.radius**3/3, surfaceArea: 4*Math.PI*p.radius**2 }),
+            },
+            torus: {
+                keywords: ['torus','donut','doughnut'], type: 'basic',
+                params: [
+                    { key:'majorRadius', label:'Major Radius', def:60, min:10, max:500, step:1 },
+                    { key:'tubeRadius', label:'Tube Radius', def:20, min:1, max:200, step:1 },
+                ],
+                create: p => { const g = new THREE.TorusGeometry(p.majorRadius, p.tubeRadius, 32, 64); g.rotateX(Math.PI/2); g.translate(0, p.tubeRadius, 0); return g; },
+                annotate: p => {
+                    const R=p.majorRadius, r=p.tubeRadius;
+                    return [
+                        dl(0, r, 0, R, r, 0, 0, 20, 0, 'R '+R.toFixed(1)),
+                        dl(R, r, 0, R+r, r, 0, 0, 20, 0, 'r '+r.toFixed(1)),
+                    ];
+                },
+                props: p => ({ volume: 2*Math.PI**2*p.majorRadius*p.tubeRadius**2, surfaceArea: 4*Math.PI**2*p.majorRadius*p.tubeRadius }),
+            },
+            capsule: {
+                keywords: ['capsule','pill'], type: 'basic',
+                params: [
+                    { key:'radius', label:'Radius', def:30, min:1, max:200, step:1 },
+                    { key:'height', label:'Body Height', def:100, min:0, max:500, step:1 },
+                ],
+                create: p => { const g = new THREE.CapsuleGeometry(p.radius, p.height, 16, 32); g.translate(0, p.height/2 + p.radius, 0); return g; },
+                annotate: p => {
+                    const r=p.radius, h=p.height, totalH=h+2*r, o=r+20;
+                    return [
+                        dl(0, 0, 0, r, 0, 0, 0, 0, 20, 'R '+r.toFixed(1)),
+                        dl(r, 0, 0, r, totalH, 0, o, 0, 0, totalH.toFixed(1)),
+                    ];
+                },
+                props: p => {
+                    return { volume: Math.PI*p.radius**2*p.height + 4*Math.PI*p.radius**3/3, surfaceArea: 2*Math.PI*p.radius*p.height + 4*Math.PI*p.radius**2 };
+                },
+            },
+            ellipsoid: {
+                keywords: ['ellipsoid','egg','oval'], type: 'basic',
+                params: [
+                    { key:'rx', label:'Radius X', def:80, min:1, max:500, step:1 },
+                    { key:'ry', label:'Radius Y', def:50, min:1, max:500, step:1 },
+                    { key:'rz', label:'Radius Z', def:60, min:1, max:500, step:1 },
+                ],
+                create: p => { const g = new THREE.SphereGeometry(1, 64, 64); g.scale(p.rx, p.ry, p.rz); g.translate(0, p.ry, 0); return g; },
+                annotate: p => {
+                    return [
+                        dl(0, p.ry, 0, p.rx, p.ry, 0, 0, 20, 20, p.rx.toFixed(1)),
+                        dl(0, 0, 0, 0, p.ry*2, 0, p.rx+20, 0, 0, (p.ry*2).toFixed(1)),
+                        dl(0, p.ry, 0, 0, p.ry, p.rz, 20, 20, 0, p.rz.toFixed(1)),
+                    ];
+                },
+                props: p => ({ volume: 4*Math.PI*p.rx*p.ry*p.rz/3, surfaceArea: 'Approximate' }),
+            },
+
+            // --- PRISMS & PROFILES ---
+            'hexagonal prism': {
+                keywords: ['hexagonal prism','hexagon','hex prism'], type: 'prism',
+                params: [
+                    { key:'radius', label:'Radius', def:50, min:1, max:500, step:1 },
+                    { key:'height', label:'Height', def:150, min:1, max:1000, step:1 },
+                ],
+                create: p => { const g = new THREE.CylinderGeometry(p.radius, p.radius, p.height, 6); g.translate(0, p.height/2, 0); return g; },
+                annotate: p => {
+                    const r=p.radius, h=p.height, o=r+20;
+                    return [ dl(0, h, 0, r, h, 0, 0, 20, 0, 'R '+r.toFixed(1)), dl(r, 0, 0, r, h, 0, o, 0, 0, h.toFixed(1)) ];
+                },
+                props: p => ({ volume: 3*Math.sqrt(3)/2*p.radius**2*p.height, surfaceArea: 'Calculated' }),
+            },
+            'triangular prism': {
+                keywords: ['triangular prism','triangle prism'], type: 'prism',
+                params: [
+                    { key:'side', label:'Side Length', def:80, min:1, max:500, step:1 },
+                    { key:'height', label:'Height', def:150, min:1, max:1000, step:1 },
+                ],
+                create: p => { const g = new THREE.CylinderGeometry(p.side, p.side, p.height, 3); g.translate(0, p.height/2, 0); return g; },
+                annotate: p => { return [dl(p.side, 0, 0, p.side, p.height, 0, p.side+20, 0, 0, p.height.toFixed(1))]; },
+                props: p => ({ volume: 'Calculated', surfaceArea: 'Calculated' }),
+            },
+            wedge: {
+                keywords: ['wedge','ramp','inclined plane'], type: 'prism',
+                params: [
+                    { key:'width', label:'Width', def:100, min:1, max:500, step:1 },
+                    { key:'height', label:'Height', def:80, min:1, max:500, step:1 },
+                    { key:'depth', label:'Depth', def:150, min:1, max:500, step:1 },
+                ],
+                create: p => {
+                    const w=p.width, h=p.height, d=p.depth;
+                    const hw=w/2, hd=d/2;
+                    const verts = new Float32Array([
+                        -hw,0, hd,  hw,0, hd,  -hw,h, hd,
+                        -hw,0,-hd,  hw,0,-hd,  -hw,h,-hd,
+                    ]);
+                    const idx = [0,4,1, 0,3,4, 0,1,2, 3,5,4, 0,5,3, 0,2,5, 2,4,5, 2,1,4];
+                    const geo = new THREE.BufferGeometry();
+                    geo.setAttribute('position', new THREE.BufferAttribute(verts, 3));
+                    geo.setIndex(idx);
+                    geo.computeVertexNormals();
+                    return geo;
+                },
+                annotate: p => { return [dl(-p.width/2, 0, p.depth/2, p.width/2, 0, p.depth/2, 0, 0, 20, p.width.toFixed(1))]; },
+                props: p => ({ volume: p.width*p.height*p.depth/2, surfaceArea: 'Calculated' }),
+            },
+
+            // --- ENGINEERING ---
+            gear: {
+                keywords: ['gear','cog','sprocket'], type: 'engineering',
+                params: [
+                    { key:'outerRadius', label:'Outer Radius', def:80, min:10, max:500, step:1 },
+                    { key:'innerRadius', label:'Root Radius', def:60, min:5, max:490, step:1 },
+                    { key:'height', label:'Thickness', def:20, min:1, max:200, step:1 },
+                    { key:'teeth', label:'Teeth Count', def:12, min:4, max:100, step:1 },
+                ],
+                create: p => {
+                    const R=Math.max(0.1, p.outerRadius), r=Math.min(p.innerRadius, R-0.1);
+                    const n=Math.round(p.teeth), h=Math.max(0.1, p.height);
+                    const shape = new THREE.Shape();
+                    const pts = [];
+                    for (let i = 0; i < n; i++) {
+                        const base = (i/n)*Math.PI*2;
+                        const step = (1/n)*Math.PI*2;
+                        pts.push([base, r]);
+                        pts.push([base+step*0.15, R]);
+                        pts.push([base+step*0.45, R]);
+                        pts.push([base+step*0.6, r]);
+                    }
+                    shape.moveTo(Math.cos(pts[0][0])*pts[0][1], Math.sin(pts[0][0])*pts[0][1]);
+                    for (let i = 1; i < pts.length; i++) {
+                        shape.lineTo(Math.cos(pts[i][0])*pts[i][1], Math.sin(pts[i][0])*pts[i][1]);
+                    }
+                    shape.closePath();
+                    // Hole
+                    const holeR = Math.max(2, r*0.25);
+                    const hole = new THREE.Path();
+                    hole.absarc(0, 0, holeR, 0, Math.PI*2, false);
+                    shape.holes.push(hole);
+                    
+                    const geo = new THREE.ExtrudeGeometry(shape, { depth: h, bevelEnabled: false });
+                    geo.rotateX(-Math.PI/2);
+                    geo.translate(0, h/2, 0); // Ground anchor
+                    return geo;
+                },
+                annotate: p => {
+                    return [
+                        dl(0, p.height, 0, p.outerRadius, p.height, 0, 0, 20, 0, 'R '+p.outerRadius.toFixed(1)),
+                        dl(p.outerRadius, 0, 0, p.outerRadius, p.height, 0, 20, 0, 0, p.height.toFixed(1)),
+                    ];
+                },
+                props: p => ({ volume: 'Composite', surfaceArea: 'Composite' }),
+            },
+            bolt: {
+                keywords: ['bolt', 'screw', 'fastener', 'hex bolt'], type: 'engineering',
+                params: [
+                    { key:'threadRadius', label:'Thread Radius', def:4, min:1, max:50, step:0.5 },
+                    { key:'length', label:'Length', def:30, min:5, max:200, step:1 },
+                    { key:'headRadius', label:'Head Radius', def:7, min:2, max:80, step:0.5 },
+                    { key:'headHeight', label:'Head Height', def:5, min:1, max:30, step:0.5 },
+                ],
+                create: p => {
+                    const tr=p.threadRadius, l=p.length, hr=p.headRadius, hh=p.headHeight;
+                    
+                    // Shaft (threaded simulation using slight ridges)
+                    const shaft = new THREE.CylinderGeometry(tr, tr, l, 32);
+                    shaft.translate(0, l/2, 0);
+                    
+                    // Hex head
+                    const head = new THREE.CylinderGeometry(hr, hr, hh, 6);
+                    head.translate(0, l + hh/2, 0);
+                    
+                    return mergeGeometries([shaft, head]);
+                },
+                annotate: p => {
+                    return [
+                        dl(p.threadRadius, 0, 0, p.threadRadius, p.length, 0, 20, 0, 0, 'L '+p.length.toFixed(1)),
+                        dl(0, p.length+p.headHeight, 0, p.headRadius, p.length+p.headHeight, 0, 0, 10, 0, 'Head R '+p.headRadius.toFixed(1)),
+                    ];
+                },
+                props: p => ({ volume: 'Composite', surfaceArea: 'Composite' }),
+            },
+            'knurled cylinder': {
+                keywords: ['knurled cylinder', 'knurl', 'grip'], type: 'engineering',
+                params: [
+                    { key:'radius', label:'Radius', def:20, min:5, max:100, step:1 },
+                    { key:'height', label:'Height', def:50, min:10, max:300, step:1 },
+                    { key:'pitch', label:'Knurl Pitch', def:3, min:1, max:10, step:0.5 },
+                ],
+                create: p => {
+                    const r=p.radius, h=p.height, pitch=p.pitch;
+                    const rSeg = Math.floor((2*Math.PI*r)/pitch);
+                    const hSeg = Math.floor(h/pitch);
+                    
+                    // We simulate knurling by creating a highly segmented cylinder and perturbing vertices
+                    const geo = new THREE.CylinderGeometry(r, r, h, rSeg, hSeg);
+                    const pos = geo.attributes.position;
+                    
+                    for(let i=0; i<pos.count; i++) {
+                        const y = pos.getY(i);
+                        // Skip top and bottom caps for clean edges
+                        if (Math.abs(y - h/2) < 0.1 || Math.abs(y + h/2) < 0.1) continue;
+                        
+                        const angle = Math.atan2(pos.getZ(i), pos.getX(i));
+                        const normalizedY = (y + h/2) / h;
+                        
+                        // Diamond knurl math
+                        const pattern = Math.sin(angle * rSeg/2 + normalizedY * hSeg * Math.PI) * 
+                                        Math.sin(angle * rSeg/2 - normalizedY * hSeg * Math.PI);
+                        
+                        // Apply perturbation (0.5mm depth)
+                        const depth = pattern > 0 ? 0.5 : -0.5;
+                        const nx = Math.cos(angle) * (r + depth);
+                        const nz = Math.sin(angle) * (r + depth);
+                        
+                        pos.setX(i, nx);
+                        pos.setZ(i, nz);
+                    }
+                    geo.computeVertexNormals();
+                    geo.translate(0, h/2, 0);
+                    return geo;
+                },
+                annotate: p => { return [dl(p.radius, 0, 0, p.radius, p.height, 0, p.radius+10, 0, 0, p.height.toFixed(1))]; },
+                props: p => ({ volume: 'Composite', surfaceArea: 'Complex' }),
+            },
+            'i-beam': {
+                keywords: ['i-beam', 'beam', 'girder', 'h-beam'], type: 'engineering',
+                params: [
+                    { key:'width', label:'Flange Width', def:100, min:20, max:500, step:5 },
+                    { key:'height', label:'Total Height', def:200, min:20, max:1000, step:5 },
+                    { key:'thickness', label:'Thickness', def:10, min:2, max:50, step:1 },
+                    { key:'length', label:'Length', def:500, min:50, max:5000, step:10 },
+                ],
+                create: p => {
+                    const w=p.width, h=p.height, t=p.thickness, l=p.length;
+                    const shape = new THREE.Shape();
+                    // Start bottom left
+                    shape.moveTo(-w/2, 0);
+                    shape.lineTo(w/2, 0); // Bottom flange
+                    shape.lineTo(w/2, t);
+                    shape.lineTo(t/2, t); // Move to web
+                    shape.lineTo(t/2, h-t); // Web
+                    shape.lineTo(w/2, h-t); // Top flange right
+                    shape.lineTo(w/2, h);
+                    shape.lineTo(-w/2, h); // Top flange left
+                    shape.lineTo(-w/2, h-t);
+                    shape.lineTo(-t/2, h-t); // Move to web
+                    shape.lineTo(-t/2, t); // Web
+                    shape.lineTo(-w/2, t);
+                    shape.closePath();
+                    
+                    const geo = new THREE.ExtrudeGeometry(shape, { depth: l, bevelEnabled: false });
+                    geo.translate(0, 0, -l/2); // Center along Z
+                    return geo;
+                },
+                annotate: p => {
+                    const w=p.width, h=p.height, l=p.length;
+                    return [
+                        dl(-w/2, 0, l/2, w/2, 0, l/2, 0, -20, 0, 'W '+w.toFixed(1)),
+                        dl(w/2, 0, l/2, w/2, h, l/2, 20, 0, 0, 'H '+h.toFixed(1)),
+                        dl(w/2, 0, -l/2, w/2, 0, l/2, w/2+30, 0, 0, 'L '+l.toFixed(1)),
+                    ];
+                },
+                props: p => ({ volume: 'Composite', surfaceArea: 'Composite' }),
+            },
+            honeycomb: {
+                keywords: ['honeycomb', 'hex grid', 'infill'], type: 'engineering',
+                params: [
+                    { key:'width', label:'Panel Width', def:200, min:50, max:1000, step:10 },
+                    { key:'depth', label:'Panel Depth', def:200, min:50, max:1000, step:10 },
+                    { key:'height', label:'Thickness', def:10, min:2, max:100, step:1 },
+                    { key:'hexSize', label:'Cell Size', def:15, min:5, max:50, step:1 },
+                    { key:'wallThickness', label:'Wall Thickness', def:2, min:0.5, max:10, step:0.5 },
+                ],
+                create: p => {
+                    const w=p.width, d=p.depth, h=p.height, hs=p.hexSize, wt=p.wallThickness;
+                    
+                    // Create base box
+                    const baseBox = new THREE.BoxGeometry(w, h, d);
+                    baseBox.translate(0, h/2, 0);
+                    
+                    // This is complex for CSG, so we build it parametrically
+                    // A proper implementation would use Manifold/CSG, but for speed in ThreeJS:
+                    // We create a grid of hex cylinders and subtract them
+                    
+                    const shape = new THREE.Shape();
+                    shape.moveTo(-w/2, -d/2);
+                    shape.lineTo(w/2, -d/2);
+                    shape.lineTo(w/2, d/2);
+                    shape.lineTo(-w/2, d/2);
+                    shape.closePath();
+                    
+                    // Calculate grid
+                    const dx = hs * 1.5;
+                    const dz = hs * Math.sqrt(3);
+                    const cols = Math.ceil(w / dx);
+                    const rows = Math.ceil(d / dz) * 2;
+                    
+                    const innerHs = hs - wt;
+                    
+                    for(let r=0; r<rows; r++) {
+                        for(let c=0; c<cols; c++) {
+                            const offsetZ = (c%2 === 0) ? 0 : dz/2;
+                            const cx = -w/2 + c*dx;
+                            const cz = -d/2 + r*dz + offsetZ;
+                            
+                            if (cx > -w/2 && cx < w/2 && cz > -d/2 && cz < d/2) {
+                                const hole = new THREE.Path();
+                                for(let i=0; i<6; i++) {
+                                    const angle = i * Math.PI / 3;
+                                    const hx = cx + Math.cos(angle) * innerHs;
+                                    const hz = cz + Math.sin(angle) * innerHs;
+                                    if(i===0) hole.moveTo(hx, hz);
+                                    else hole.lineTo(hx, hz);
+                                }
+                                hole.closePath();
+                                shape.holes.push(hole);
+                            }
+                        }
+                    }
+                    
+                    const geo = new THREE.ExtrudeGeometry(shape, { depth: h, bevelEnabled: false });
+                    geo.rotateX(-Math.PI/2);
+                    geo.translate(0, h, 0); // Fix orientation
+                    return geo;
+                },
+                annotate: p => {
+                    return [
+                        dl(-p.width/2, 0, p.depth/2, p.width/2, 0, p.depth/2, 0, 0, 20, p.width.toFixed(1)),
+                        dl(p.width/2, 0, p.depth/2, p.width/2, p.height, p.depth/2, 20, 0, 0, p.height.toFixed(1)),
+                    ];
+                },
+                props: p => ({ volume: 'Composite', surfaceArea: 'Complex' }),
+            },
+
+            // --- COMPOSITES (From v3) ---
+            staircase: {
+                keywords: ['staircase', 'stairs', 'steps'], type: 'composite',
+                params: [
+                    { key:'width', label:'Width', def:200, min:50, max:1000, step:10 },
+                    { key:'height', label:'Total Height', def:200, min:50, max:1000, step:10 },
+                    { key:'depth', label:'Total Depth', def:300, min:50, max:1000, step:10 },
+                    { key:'steps', label:'Step Count', def:10, min:3, max:50, step:1 }
+                ],
+                create: p => {
+                    const stepH = p.height / p.steps;
+                    const stepD = p.depth / p.steps;
+                    const geos = [];
+                    for(let i=0; i<p.steps; i++) {
+                        const sh = (i+1) * stepH;
+                        const g = new THREE.BoxGeometry(p.width, sh, stepD);
+                        const zPos = (p.depth/2) - (i * stepD) - (stepD/2);
+                        g.translate(0, sh/2, zPos);
+                        geos.push(g);
+                    }
+                    return mergeGeometries(geos);
+                },
+                annotate: p => {
+                    const hw = p.width/2, hd = p.depth/2;
+                    return [
+                        dl(-hw, 0, hd, hw, 0, hd, 0, 0, 30, 'W '+p.width.toFixed(0)),
+                        dl(hw, 0, hd, hw, p.height, -hd, 30, 0, 0, 'H '+p.height.toFixed(0)),
+                        dl(hw, 0, -hd, hw, 0, hd, 60, 0, 0, 'D '+p.depth.toFixed(0)),
+                    ];
+                },
+                props: p => ({ volume: 'Composite', surfaceArea: 'Composite' })
+            },
+            rocket: {
+                keywords: ['rocket', 'spaceship', 'missile'], type: 'composite',
+                params: [
+                    { key:'radius', label:'Body Radius', def:40, min:10, max:200, step:5 },
+                    { key:'height', label:'Total Height', def:400, min:100, max:1500, step:10 }
+                ],
+                create: p => {
+                    const r = p.radius, h = p.height;
+                    const bodyH = h * 0.7, noseH = h * 0.3;
+                    const body = new THREE.CylinderGeometry(r, r, bodyH, 32);
+                    body.translate(0, bodyH/2, 0);
+                    const nose = new THREE.ConeGeometry(r, noseH, 32);
+                    nose.translate(0, bodyH + noseH/2, 0);
+                    const finBox = new THREE.BoxGeometry(r*1.5, r*3, r*0.2);
+                    finBox.translate(r + (r*1.5)/2, r*1.5, 0);
+                    const fins = [];
+                    for(let i=0; i<3; i++) {
+                        const f = finBox.clone();
+                        f.rotateY((Math.PI*2/3) * i);
+                        fins.push(f);
+                    }
+                    return mergeGeometries([body, nose, ...fins]);
+                },
+                annotate: p => {
+                    return [
+                        dl(0, 0, 0, p.radius, 0, 0, 0, 20, 20, 'R '+p.radius.toFixed(0)),
+                        dl(p.radius, 0, 0, p.radius, p.height, 0, p.radius*1.5 + 20, 0, 0, 'H '+p.height.toFixed(0))
+                    ];
+                },
+                props: p => ({ volume: 'Composite', surfaceArea: 'Composite' })
+            },
+            arch: {
+                keywords: ['arch', 'archway', 'doorway'], type: 'composite',
+                params: [
+                    { key:'radius', label:'Arch Radius', def:100, min:20, max:500, step:5 },
+                    { key:'thickness', label:'Thickness', def:40, min:5, max:150, step:1 },
+                    { key:'depth', label:'Depth', def:50, min:10, max:500, step:5 },
+                    { key:'height', label:'Pillar Height', def:150, min:0, max:1000, step:10 }
+                ],
+                create: p => {
+                    const r = p.radius, t = p.thickness, d = p.depth, h = p.height;
+                    const shape = new THREE.Shape();
+                    shape.absarc(0, h, r+t, 0, Math.PI, false);
+                    shape.lineTo(-r, h);
+                    shape.absarc(0, h, r, Math.PI, 0, true);
+                    shape.lineTo(r+t, h);
+                    const archGeo = new THREE.ExtrudeGeometry(shape, { depth: d, bevelEnabled: false, curveSegments: 32 });
+                    archGeo.translate(0, 0, -d/2);
+                    const p1 = new THREE.BoxGeometry(t, h, d); p1.translate(r + t/2, h/2, 0);
+                    const p2 = new THREE.BoxGeometry(t, h, d); p2.translate(-r - t/2, h/2, 0);
+                    return mergeGeometries([archGeo, p1, p2]);
+                },
+                annotate: p => {
+                    const outerR = p.radius + p.thickness;
+                    return [
+                        dl(outerR, 0, 0, outerR, p.height, 0, 30, 0, 0, 'Pillar H '+p.height.toFixed(0)),
+                        dl(0, p.height, 0, p.radius, p.height, 0, 0, 20, 0, 'Inner R '+p.radius.toFixed(0))
+                    ];
+                },
+                props: p => ({ volume: 'Composite', surfaceArea: 'Composite' })
+            }
+        };
+
+        // Autocomplete List
+        const AUTOCOMPLETE_LIST = Object.entries(SHAPES).flatMap(([key, cfg]) => 
+            cfg.keywords.map(kw => ({ keyword: kw, type: cfg.type }))
+        ).concat([
+            // Modifiers
+            { keyword: 'with hole', type: 'modifier' },
+            { keyword: 'hollow', type: 'modifier' },
+            { keyword: 'array', type: 'modifier' }
+        ]);
+
+        // ==========================================
+        // 3. PROMPT PARSER & CSG PIPELINE
+        // ==========================================
+        
+        function parsePrompt(prompt) {
+            const p = prompt.toLowerCase().trim();
+            const result = {
+                baseShape: null,
+                modifiers: { hollow: false, hole: false, array: 0 },
+                params: {}
+            };
+
+            // Detect Modifiers
+            if (p.includes('hollow')) result.modifiers.hollow = true;
+            if (p.includes('hole') || p.includes('bore')) result.modifiers.hole = true;
+            const arrayMatch = p.match(/array of (\d+)/);
+            if (arrayMatch) result.modifiers.array = parseInt(arrayMatch[1]);
+
+            // Detect Base Shape
+            let bestLen = 0;
+            for (const [key, cfg] of Object.entries(SHAPES)) {
+                for (const kw of cfg.keywords) {
+                    if (p.includes(kw) && kw.length > bestLen) {
+                        bestLen = kw.length;
+                        result.baseShape = key;
+                    }
+                }
+            }
+
+            // Parse Inline Dimensions (e.g. "100x50x30 box" or "radius=50")
+            if (result.baseShape) {
+                const cfg = SHAPES[result.baseShape];
+                const sizeMatch = p.match(/(\d+\.?\d*)\s*[x×]\s*(\d+\.?\d*)\s*[x×]\s*(\d+\.?\d*)/);
+                if (sizeMatch) {
+                    const vals = [parseFloat(sizeMatch[1]), parseFloat(sizeMatch[2]), parseFloat(sizeMatch[3])];
+                    cfg.params.forEach((param, i) => { if (vals[i] != null) result.params[param.key] = vals[i]; });
+                } else {
+                    for (const param of cfg.params) {
+                        const regex = new RegExp(param.key.replace(/[.*+?^${}()|[\]\\]/g, '\\$&') + '\\s*(?:[:=]?\\s*)(\\d+\\.?\\d*)');
+                        const m = p.match(regex);
+                        if (m) result.params[param.key] = parseFloat(m[1]);
+                    }
+                }
+            }
+
+            return result;
+        }
+
+        async function applyCSGModifiers(baseGeo, modifiers, params) {
+            if (!modifiers.hollow && !modifiers.hole && !modifiers.array) return baseGeo;
+            
+            showCSGLoading(true);
+            // Allow UI to paint loading state
+            await new Promise(r => setTimeout(r, 50));
+            
+            try {
+                let finalGeo = baseGeo;
+                const evaluator = new Evaluator();
+                
+                // Get bounding box to size modifiers properly
+                finalGeo.computeBoundingBox();
+                const bbox = finalGeo.boundingBox;
+                const size = new THREE.Vector3();
+                bbox.getSize(size);
+                const center = new THREE.Vector3();
+                bbox.getCenter(center);
+                
+                const baseBrush = new Brush(finalGeo);
+                baseBrush.updateMatrixWorld();
+
+                // 1. HOLLOW MODIFIER (Subtract slightly scaled down version)
+                if (modifiers.hollow) {
+                    const shellGeo = finalGeo.clone();
+                    
+                    // We need a proper shelling algorithm, but simple scale works for some shapes
+                    // For boxes, scaling creates uneven walls. Better to build a specific inner box.
+                    const shellBrush = new Brush(shellGeo);
+                    
+                    // Scale down by 4mm total (2mm wall thickness)
+                    const sx = (size.x - 4) / size.x;
+                    const sy = (size.y - 4) / size.y;
+                    const sz = (size.z - 4) / size.z;
+                    
+                    shellBrush.scale.set(sx, sy, sz);
+                    
+                    // Keep base at Y=0
+                    shellBrush.position.set(0, 2, 0);
+                    shellBrush.updateMatrixWorld();
+                    
+                    finalGeo = evaluator.evaluate(baseBrush, shellBrush, SUBTRACTION).geometry;
+                    baseBrush.geometry = finalGeo; // Update base for next ops
+                }
+
+                // 2. HOLE MODIFIER (Subtract cylinder through center)
+                if (modifiers.hole) {
+                    const holeRadius = Math.min(size.x, size.z) * 0.2;
+                    const holeHeight = size.y * 1.5; // Ensure it goes all the way through
+                    
+                    const holeGeo = new THREE.CylinderGeometry(holeRadius, holeRadius, holeHeight, 32);
+                    const holeBrush = new Brush(holeGeo);
+                    
+                    holeBrush.position.copy(center); // Place at center of bounding box
+                    holeBrush.updateMatrixWorld();
+                    
+                    finalGeo = evaluator.evaluate(baseBrush, holeBrush, SUBTRACTION).geometry;
+                }
+
+                // 3. ARRAY MODIFIER (Linear array)
+                if (modifiers.array > 1) {
+                    const count = Math.min(modifiers.array, 10); // Cap at 10 for perf
+                    const spacing = size.x * 1.2; // 20% gap
+                    
+                    const arrGeos = [finalGeo];
+                    for(let i=1; i<count; i++) {
+                        const copy = finalGeo.clone();
+                        copy.translate(i * spacing, 0, 0);
+                        arrGeos.push(copy);
+                    }
+                    finalGeo = mergeGeometries(arrGeos);
+                }
+
+                showCSGLoading(false);
+                return finalGeo;
+            } catch (e) {
+                console.error("CSG Error:", e);
+                showCSGLoading(false);
+                showToast("CSG Operation Failed. Showing base shape.", "error");
+                return baseGeo;
+            }
+        }
+
+        // ==========================================
+        // 4. SCENE STATE & INITIALIZATION
+        // ==========================================
+        
+        let scene, camera, renderer, controls;
+        let gridHelper, axesHelper, hemiLight;
+        let sceneObjects = []; // Array of { id, name, group, geo, params, shapeKey }
+        let currentMaterialIdx = 0;
+        
+        // Materials
+        const MATERIALS = [
+            // 0: Signature Orange (Standard)
+            new THREE.MeshStandardMaterial({ color: 0xff7b00, metalness: 0.2, roughness: 0.3, side: THREE.DoubleSide }),
+            // 1: Sleek Dark Metal
+            new THREE.MeshStandardMaterial({ color: 0x4a5568, metalness: 0.7, roughness: 0.2, side: THREE.DoubleSide }),
+            // 2: Glass/Ghost
+            new THREE.MeshPhysicalMaterial({ color: 0x00e5a0, metalness: 0.1, roughness: 0.1, transmission: 0.9, transparent: true, side: THREE.DoubleSide }),
+            // 3: White Ceramic
+            new THREE.MeshStandardMaterial({ color: 0xffffff, metalness: 0.1, roughness: 0.8, side: THREE.DoubleSide })
+        ];
+        
+        const edgeMat = new THREE.LineBasicMaterial({ color: 0xffffff, transparent: true, opacity: 0.3 });
+
+        function initScene() {
+            const canvas = document.getElementById('viewport');
+            
+            scene = new THREE.Scene();
+            scene.fog = new THREE.FogExp2(0x06080f, 0.0005);
+
+            camera = new THREE.PerspectiveCamera(45, window.innerWidth / window.innerHeight, 1, 20000);
+            camera.position.set(500, 400, 600);
+
+            renderer = new THREE.WebGLRenderer({ canvas, antialias: true, alpha: true, preserveDrawingBuffer: true });
+            renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+            renderer.setSize(window.innerWidth, window.innerHeight);
+            renderer.toneMapping = THREE.ACESFilmicToneMapping;
+            renderer.toneMappingExposure = 1.2;
+            renderer.shadowMap.enabled = true;
+            renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+
+            controls = new OrbitControls(camera, canvas);
+            controls.enableDamping = true;
+            controls.dampingFactor = 0.05;
+            controls.target.set(0, 100, 0);
+
+            // Lighting setup for premium engineering look
+            hemiLight = new THREE.HemisphereLight(0xffffff, 0x0f172a, 0.6);
+            scene.add(hemiLight);
+
+            const dirLight = new THREE.DirectionalLight(0xffffff, 2.5);
+            dirLight.position.set(500, 1000, 500);
+            dirLight.castShadow = true;
+            dirLight.shadow.mapSize.width = 2048;
+            dirLight.shadow.mapSize.height = 2048;
+            dirLight.shadow.camera.near = 100;
+            dirLight.shadow.camera.far = 3000;
+            dirLight.shadow.camera.left = -1000;
+            dirLight.shadow.camera.right = 1000;
+            dirLight.shadow.camera.top = 1000;
+            dirLight.shadow.camera.bottom = -1000;
+            dirLight.shadow.bias = -0.001;
+            scene.add(dirLight);
+
+            // Rim light
+            const rimLight = new THREE.DirectionalLight(0x6366f1, 1.5);
+            rimLight.position.set(-500, 200, -500);
+            scene.add(rimLight);
+
+            // Floor for shadows
+            const floorMat = new THREE.ShadowMaterial({ opacity: 0.4 });
+            const floor = new THREE.Mesh(new THREE.PlaneGeometry(10000, 10000), floorMat);
+            floor.rotation.x = -Math.PI / 2;
+            floor.receiveShadow = true;
+            scene.add(floor);
+
+            // Helpers
+            gridHelper = new THREE.GridHelper(5000, 100, 0x305090, 0x1e325a);
+            gridHelper.material.opacity = 0.3;
+            gridHelper.material.transparent = true;
+            scene.add(gridHelper);
+
+            // Resize handler
+            window.addEventListener('resize', () => {
+                camera.aspect = window.innerWidth / window.innerHeight;
+                camera.updateProjectionMatrix();
+                renderer.setSize(window.innerWidth, window.innerHeight);
+            });
+        }
+
+        // ==========================================
+        // 5. ANNOTATION SYSTEM (Text Sprites)
+        // ==========================================
+        
+        function createTextSprite(text, position) {
+            const canvas = document.createElement('canvas');
+            canvas.width = 256; canvas.height = 64;
+            const ctx = canvas.getContext('2d');
+            
+            // Background
+            const tw = ctx.measureText(text).width * 2 + 32;
+            const px = (256 - tw) / 2;
+            ctx.fillStyle = 'rgba(6,8,15,0.85)';
+            ctx.beginPath(); ctx.roundRect(px, 12, tw, 40, 6); ctx.fill();
+            
+            // Border
+            ctx.strokeStyle = '#00e5a0'; ctx.lineWidth = 1;
+            ctx.beginPath(); ctx.roundRect(px, 12, tw, 40, 6); ctx.stroke();
+            
+            // Text
+            ctx.font = 'bold 24px JetBrains Mono, monospace';
+            ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+            ctx.fillStyle = '#00e5a0';
+            ctx.fillText(text, 128, 34);
+            
+            const texture = new THREE.CanvasTexture(canvas);
+            const sprite = new THREE.Sprite(new THREE.SpriteMaterial({ map: texture, depthTest: false, sizeAttenuation: false }));
+            sprite.position.copy(position);
+            sprite.scale.set(0.15, 0.0375, 1); // Fixed size on screen
+            sprite.renderOrder = 999;
+            return sprite;
+        }
+
+        function renderAnnotations(dims) {
+            const group = new THREE.Group();
+            group.name = "annotations";
+            const lineMat = new THREE.LineBasicMaterial({ color: 0x00e5a0, transparent: true, opacity: 0.8, depthTest: false });
+            const extMat = new THREE.LineBasicMaterial({ color: 0x00e5a0, transparent: true, opacity: 0.3, depthTest: false });
+
+            dims.forEach(dim => {
+                // Extension lines
+                group.add(new THREE.Line(new THREE.BufferGeometry().setFromPoints([dim.start, dim.start.clone().add(dim.offset)]), extMat));
+                group.add(new THREE.Line(new THREE.BufferGeometry().setFromPoints([dim.end, dim.end.clone().add(dim.offset)]), extMat));
+                
+                // Dimension line
+                const ds = dim.start.clone().add(dim.offset);
+                const de = dim.end.clone().add(dim.offset);
+                group.add(new THREE.Line(new THREE.BufferGeometry().setFromPoints([ds, de]), lineMat));
+                
+                // Ticks
+                const dir = de.clone().sub(ds).normalize();
+                const perp = new THREE.Vector3().crossVectors(dir, new THREE.Vector3(0,1,0)).normalize();
+                if(perp.lengthSq() < 0.1) perp.set(1,0,0);
+                perp.multiplyScalar(5);
+                
+                [ds, de].forEach(pt => {
+                    const t1 = pt.clone().add(perp);
+                    const t2 = pt.clone().sub(perp);
+                    group.add(new THREE.Line(new THREE.BufferGeometry().setFromPoints([t1, t2]), lineMat));
+                });
+                
+                // Label
+                const mid = ds.clone().add(de).multiplyScalar(0.5);
+                // Push label out a bit more
+                const push = dim.offset.clone().normalize().multiplyScalar(15);
+                mid.add(push);
+                group.add(createTextSprite(dim.label, mid));
+            });
+            return group;
+        }
+
+        // ==========================================
+        // 6. CORE GENERATION LOOP
+        // ==========================================
+        
+        async function processPrompt(promptStr) {
+            if (!promptStr) return;
+            
+            const parsed = parsePrompt(promptStr);
+            if (!parsed.baseShape) {
+                showToast("Shape not recognized. Try 'box' or 'gear'.", "error");
+                return;
+            }
+
+            const shapeKey = parsed.baseShape;
+            const cfg = SHAPES[shapeKey];
+            
+            // Merge default params with parsed ones
+            const params = {};
+            cfg.params.forEach(p => { params[p.key] = p.def; });
+            Object.assign(params, parsed.params);
+
+            await generateObject(shapeKey, params, parsed.modifiers, promptStr);
+            
+            // Update UI
+            document.getElementById('promptInput').value = promptStr;
+            addToHistory(promptStr);
+        }
+
+        async function generateObject(shapeKey, params, modifiers, originalPrompt) {
+            const cfg = SHAPES[shapeKey];
+            
+            // 1. Base Geometry
+            let geo;
+            try { 
+                geo = cfg.create(params); 
+            } catch(e) { 
+                console.error(e); showToast("Failed to create geometry.", "error"); return; 
+            }
+
+            // 2. CSG Modifiers
+            const hasCSG = modifiers.hollow || modifiers.hole || modifiers.array;
+            document.getElementById('statCsg').textContent = hasCSG ? "Active" : "Standby";
+            document.getElementById('statCsg').className = hasCSG ? "text-tertiary font-bold" : "text-muted";
+            
+            geo = await applyCSGModifiers(geo, modifiers, params);
+            geo.computeVertexNormals();
+
+            // 3. Create Visual Group
+            const objGroup = new THREE.Group();
+            const id = genId();
+            objGroup.name = `obj_${id}`;
+            
+            // Offset position based on scene objects to avoid overlap
+            const xOffset = sceneObjects.length * 200;
+            objGroup.position.x = xOffset;
+
+            // Mesh
+            const mesh = new THREE.Mesh(geo, MATERIALS[currentMaterialIdx]);
+            mesh.castShadow = true;
+            mesh.receiveShadow = true;
+            objGroup.add(mesh);
+
+            // Edges
+            const edges = new THREE.LineSegments(new THREE.EdgesGeometry(geo, 20), edgeMat);
+            edges.name = "edges";
+            objGroup.add(edges);
+
+            // Annotations (only base shape annotations if no array)
+            if (cfg.annotate && !modifiers.array) {
+                const dims = cfg.annotate(params);
+                const annGroup = renderAnnotations(dims);
+                objGroup.add(annGroup);
+            }
+
+            // Pop Animation
+            objGroup.scale.set(0.01, 0.01, 0.01);
+            
+            scene.add(objGroup);
+
+            // Save to State
+            const name = originalPrompt.length > 20 ? originalPrompt.substring(0,18)+'...' : originalPrompt;
+            sceneObjects.push({
+                id,
+                name,
+                shapeKey,
+                params,
+                modifiers,
+                group: objGroup,
+                mesh: mesh
+            });
+
+            // Focus Camera
+            const bbox = new THREE.Box3().setFromObject(mesh);
+            const center = bbox.getCenter(new THREE.Vector3());
+            const size = bbox.getSize(new THREE.Vector3());
+            const maxDim = Math.max(size.x, size.y, size.z);
+            
+            controls.target.copy(center);
+            camera.position.set(center.x + maxDim*1.5, center.y + maxDim, center.z + maxDim*1.5);
+
+            // Update UI
+            updateSceneList();
+            setActiveObject(id);
+            updateStats();
+            document.getElementById('exportBtn').disabled = false;
+            document.getElementById('clearSceneBtn').disabled = false;
+            showToast(`Generated: ${name}`, "success");
+        }
+
+        // ==========================================
+        // 7. UI CONTROLLERS
+        // ==========================================
+        
+        // --- Dimensions & Properties ---
+        function setActiveObject(id) {
+            const obj = sceneObjects.find(o => o.id === id);
+            if (!obj) return;
+            
+            // Highlight in scene list
+            document.querySelectorAll('.scene-item').forEach(el => el.classList.remove('active'));
+            const listItem = document.getElementById(`list_item_${id}`);
+            if(listItem) listItem.classList.add('active');
+
+            // Build Dimension UI
+            const cfg = SHAPES[obj.shapeKey];
+            document.getElementById('activeShapeLabel').textContent = obj.shapeKey;
+            
+            const dimContainer = document.getElementById('dimControls');
+            dimContainer.innerHTML = '';
+            
+            cfg.params.forEach((p, i) => {
+                const val = obj.params[p.key];
+                const div = document.createElement('div');
+                div.className = 'dim-group';
+                div.style.animationDelay = `${i * 50}ms`;
+                div.innerHTML = `
+                    <div class="flex items-center justify-between mb-1.5">
+                        <label class="text-xs font-semibold text-fg">${p.label}</label>
+                        <input type="number" id="num_${id}_${p.key}" value="${val}" min="${p.min}" max="${p.max}" step="${p.step}">
+                    </div>
+                    <input type="range" id="range_${id}_${p.key}" value="${val}" min="${p.min}" max="${p.max}" step="${p.step}">
+                `;
+                dimContainer.appendChild(div);
+
+                const rangeEl = div.querySelector(`#range_${id}_${p.key}`);
+                const numEl = div.querySelector(`#num_${id}_${p.key}`);
+
+                const updateParam = async (v) => {
+                    obj.params[p.key] = v;
+                    
+                    // Re-generate geometry
+                    const newGeo = cfg.create(obj.params);
+                    const finalGeo = await applyCSGModifiers(newGeo, obj.modifiers, obj.params);
+                    finalGeo.computeVertexNormals();
+                    
+                    obj.mesh.geometry.dispose();
+                    obj.mesh.geometry = finalGeo;
+                    
+                    // Update edges
+                    const oldEdges = obj.group.getObjectByName('edges');
+                    if(oldEdges) {
+                        oldEdges.geometry.dispose();
+                        oldEdges.geometry = new THREE.EdgesGeometry(finalGeo, 20);
+                    }
+                    
+                    // Update annotations
+                    const oldAnn = obj.group.getObjectByName('annotations');
+                    if(oldAnn && cfg.annotate && !obj.modifiers.array) {
+                        obj.group.remove(oldAnn);
+                        const dims = cfg.annotate(obj.params);
+                        obj.group.add(renderAnnotations(dims));
+                    }
+                    
+                    updatePropsUI(obj);
+                    updateStats();
+                };
+
+                rangeEl.addEventListener('input', e => {
+                    const v = parseFloat(e.target.value);
+                    numEl.value = v;
+                    updateParam(v);
+                });
+                
+                numEl.addEventListener('change', e => {
+                    let v = parseFloat(e.target.value);
+                    v = Math.max(p.min, Math.min(p.max, v));
+                    rangeEl.value = v;
+                    updateParam(v);
+                });
+            });
+            
+            document.getElementById('dimsPanel').style.display = 'block';
+            updatePropsUI(obj);
+        }
+
+        function updatePropsUI(obj) {
+            const cfg = SHAPES[obj.shapeKey];
+            if(!cfg.props) return;
+            
+            const props = cfg.props(obj.params);
+            const container = document.getElementById('propsContent');
+            let html = '';
+            
+            for(const [k,v] of Object.entries(props)) {
+                const label = k === 'volume' ? 'Volume' : 'Surface Area';
+                const valStr = typeof v === 'number' ? v.toLocaleString(undefined, {maximumFractionDigits:1}) + (k==='volume'?' mm³':' mm²') : v;
+                html += `<div class="prop-row"><span class="prop-label">${label}</span><span class="prop-val">${valStr}</span></div>`;
+            }
+            
+            // Add bounding box
+            obj.mesh.geometry.computeBoundingBox();
+            const b = obj.mesh.geometry.boundingBox;
+            const sz = new THREE.Vector3(); b.getSize(sz);
+            html += `<div class="prop-row"><span class="prop-label">Bounding Box</span><span class="prop-val">${sz.x.toFixed(0)}x${sz.y.toFixed(0)}x${sz.z.toFixed(0)}</span></div>`;
+            
+            container.innerHTML = html;
+            document.getElementById('propsPanel').style.display = 'block';
+        }
+
+        // --- Scene List ---
+        function updateSceneList() {
+            const container = document.getElementById('sceneList');
+            document.getElementById('partCount').textContent = `${sceneObjects.length} parts`;
+            
+            if (sceneObjects.length === 0) {
+                container.innerHTML = '<div class="text-xs text-center text-muted py-4 italic">Scene is empty</div>';
+                document.getElementById('dimsPanel').style.display = 'none';
+                document.getElementById('propsPanel').style.display = 'none';
+                return;
+            }
+            
+            container.innerHTML = '';
+            sceneObjects.forEach(obj => {
+                const div = document.createElement('div');
+                div.className = 'scene-item';
+                div.id = `list_item_${obj.id}`;
+                div.innerHTML = `
+                    <div class="scene-item-name"><i class="fa-solid fa-cube text-accent mr-2 opacity-50"></i>${obj.name}</div>
+                    <div class="scene-item-actions">
+                        <button title="Delete" data-delete="${obj.id}"><i class="fa-solid fa-xmark"></i></button>
+                    </div>
+                `;
+                div.addEventListener('click', (e) => {
+                    if(!e.target.closest('button')) setActiveObject(obj.id);
+                });
+                container.appendChild(div);
+            });
+            
+            // Delete handlers
+            container.querySelectorAll('button[data-delete]').forEach(btn => {
+                btn.addEventListener('click', (e) => {
+                    e.stopPropagation();
+                    const id = e.currentTarget.getAttribute('data-delete');
+                    const idx = sceneObjects.findIndex(o => o.id === id);
+                    if(idx > -1) {
+                        const obj = sceneObjects[idx];
+                        scene.remove(obj.group);
+                        // Dispose memory
+                        obj.mesh.geometry.dispose();
+                        sceneObjects.splice(idx, 1);
+                        updateSceneList();
+                        updateStats();
+                        if(sceneObjects.length > 0) setActiveObject(sceneObjects[sceneObjects.length-1].id);
+                        if(sceneObjects.length === 0) {
+                            document.getElementById('exportBtn').disabled = true;
+                            document.getElementById('clearSceneBtn').disabled = true;
+                        }
+                    }
+                });
+            });
+        }
+
+        // --- Stats & Export ---
+        function updateStats() {
+            let verts = 0, faces = 0;
+            sceneObjects.forEach(obj => {
+                if(obj.mesh.geometry.attributes.position) {
+                    verts += obj.mesh.geometry.attributes.position.count;
+                }
+                if(obj.mesh.geometry.index) {
+                    faces += obj.mesh.geometry.index.count / 3;
+                } else if(obj.mesh.geometry.attributes.position) {
+                    faces += obj.mesh.geometry.attributes.position.count / 3;
+                }
+            });
+            
+            document.getElementById('statVerts').textContent = verts.toLocaleString();
+            document.getElementById('statFaces').textContent = faces.toLocaleString();
+            
+            // Binary STL size estimation: 84 byte header + 50 bytes per face
+            const kb = (84 + (faces * 50)) / 1024;
+            document.getElementById('statSize').textContent = kb < 1000 ? `${kb.toFixed(1)} KB` : `${(kb/1024).toFixed(2)} MB`;
+        }
+
+        function exportBinarySTL() {
+            if (sceneObjects.length === 0) return;
+            
+            // Gather all meshes
+            const meshes = sceneObjects.map(o => o.mesh);
+            
+            // We need to write a custom Binary STL exporter since Three.js standard is ASCII
+            const exportBinary = (meshes, filename) => {
+                let totalFaces = 0;
+                
+                // Count total faces across all meshes
+                meshes.forEach(mesh => {
+                    const geo = mesh.geometry;
+                    if(geo.index) totalFaces += geo.index.count / 3;
+                    else totalFaces += geo.attributes.position.count / 3;
+                });
+                
+                // 80 bytes header + 4 bytes face count + 50 bytes per face
+                const buffer = new ArrayBuffer(84 + (totalFaces * 50));
+                const view = new DataView(buffer);
+                
+                // Header
+                for (let i = 0; i < 80; i++) view.setUint8(i, 0);
+                view.setUint32(80, totalFaces, true);
+                
+                let offset = 84;
+                
+                meshes.forEach(mesh => {
+                    const geo = mesh.geometry;
+                    geo.computeVertexNormals();
+                    
+                    const pos = geo.attributes.position;
+                    const norm = geo.attributes.normal;
+                    const index = geo.index;
+                    
+                    // Apply world matrix transformation to vertices
+                    mesh.updateMatrixWorld();
+                    const matrix = mesh.matrixWorld;
+                    const normalMatrix = new THREE.Matrix3().getNormalMatrix(matrix);
+                    
+                    const v1 = new THREE.Vector3();
+                    const v2 = new THREE.Vector3();
+                    const v3 = new THREE.Vector3();
+                    const n = new THREE.Vector3();
+                    
+                    const faces = index ? index.count/3 : pos.count/3;
+                    
+                    for (let i = 0; i < faces; i++) {
+                        const a = index ? index.getX(i*3) : i*3;
+                        const b = index ? index.getX(i*3+1) : i*3+1;
+                        const c = index ? index.getX(i*3+2) : i*3+2;
+                        
+                        v1.fromBufferAttribute(pos, a).applyMatrix4(matrix);
+                        v2.fromBufferAttribute(pos, b).applyMatrix4(matrix);
+                        v3.fromBufferAttribute(pos, c).applyMatrix4(matrix);
+                        
+                        // Use face normal (calculate it to be sure)
+                        const cb = new THREE.Vector3().subVectors(v3, v2);
+                        const ab = new THREE.Vector3().subVectors(v1, v2);
+                        cb.cross(ab).normalize();
+                        
+                        // Write normal
+                        view.setFloat32(offset, cb.x, true); offset+=4;
+                        view.setFloat32(offset, cb.y, true); offset+=4;
+                        view.setFloat32(offset, cb.z, true); offset+=4;
+                        
+                        // Write vertices
+                        view.setFloat32(offset, v1.x, true); offset+=4;
+                        view.setFloat32(offset, v1.y, true); offset+=4;
+                        view.setFloat32(offset, v1.z, true); offset+=4;
+                        
+                        view.setFloat32(offset, v2.x, true); offset+=4;
+                        view.setFloat32(offset, v2.y, true); offset+=4;
+                        view.setFloat32(offset, v2.z, true); offset+=4;
+                        
+                        view.setFloat32(offset, v3.x, true); offset+=4;
+                        view.setFloat32(offset, v3.y, true); offset+=4;
+                        view.setFloat32(offset, v3.z, true); offset+=4;
+                        
+                        // Attribute byte count
+                        view.setUint16(offset, 0, true); offset+=2;
+                    }
+                });
+                
+                const blob = new Blob([buffer], { type: 'application/octet-stream' });
+                const url = URL.createObjectURL(blob);
+                const link = document.createElement('a');
+                link.href = url;
+                link.download = filename;
+                link.click();
+                URL.revokeObjectURL(url);
+            };
+
+            const filename = sceneObjects.length === 1 ? 
+                `PromptCAD_${sceneObjects[0].shapeKey.replace(/\s+/g, '_')}_mm.stl` : 
+                `PromptCAD_Assembly_${sceneObjects.length}parts_mm.stl`;
+                
+            exportBinary(meshes, filename);
+            showToast("Binary STL Downloaded Successfully", "success");
+        }
+
+        // --- Prompt History & Autocomplete ---
+        let promptHistory = [];
+        let historyIndex = -1;
+
+        function addToHistory(prompt) {
+            if(promptHistory[promptHistory.length-1] !== prompt) {
+                promptHistory.push(prompt);
+            }
+            historyIndex = promptHistory.length;
+        }
+
+        function setupAutocomplete() {
+            const input = document.getElementById('promptInput');
+            const dropdown = document.getElementById('autocompleteDropdown');
+            let selectedIdx = -1;
+
+            input.addEventListener('input', e => {
+                const val = e.target.value.toLowerCase();
+                if(!val) { dropdown.classList.remove('active'); return; }
+
+                const matches = AUTOCOMPLETE_LIST.filter(item => item.keyword.includes(val)).slice(0, 5);
+                
+                if(matches.length > 0) {
+                    dropdown.innerHTML = matches.map((m, i) => 
+                        `<div class="ac-item" data-val="${m.keyword}">
+                            <span class="ac-keyword">${m.keyword}</span>
+                            <span class="ac-type">${m.type}</span>
+                        </div>`
+                    ).join('');
+                    dropdown.classList.add('active');
+                    selectedIdx = -1;
+                } else {
+                    dropdown.classList.remove('active');
+                }
+            });
+
+            // Handle selection via click
+            dropdown.addEventListener('click', e => {
+                const item = e.target.closest('.ac-item');
+                if(item) {
+                    const val = item.getAttribute('data-val');
+                    // Simple replacement logic: if they typed a modifier, add it, else replace
+                    const current = input.value;
+                    const words = current.split(' ');
+                    words[words.length-1] = val;
+                    input.value = words.join(' ') + ' ';
+                    input.focus();
+                    dropdown.classList.remove('active');
+                }
+            });
+
+            // Keyboard Nav
+            input.addEventListener('keydown', e => {
+                const items = dropdown.querySelectorAll('.ac-item');
+                
+                if(e.key === 'ArrowDown' && dropdown.classList.contains('active')) {
+                    e.preventDefault();
+                    if(selectedIdx < items.length-1) selectedIdx++;
+                    items.forEach((item, i) => item.classList.toggle('selected', i === selectedIdx));
+                }
+                else if(e.key === 'ArrowUp' && dropdown.classList.contains('active')) {
+                    e.preventDefault();
+                    if(selectedIdx > 0) selectedIdx--;
+                    items.forEach((item, i) => item.classList.toggle('selected', i === selectedIdx));
+                }
+                else if(e.key === 'Enter') {
+                    e.preventDefault();
+                    if (dropdown.classList.contains('active') && selectedIdx >= 0) {
+                        items[selectedIdx].click();
+                    } else {
+                        dropdown.classList.remove('active');
+                        processPrompt(input.value);
+                    }
+                }
+                else if(e.key === 'Escape') {
+                    dropdown.classList.remove('active');
+                }
+                // History
+                else if(e.key === 'ArrowUp' && !dropdown.classList.contains('active')) {
+                    e.preventDefault();
+                    if(historyIndex > 0) {
+                        historyIndex--;
+                        input.value = promptHistory[historyIndex];
+                    }
+                }
+                else if(e.key === 'ArrowDown' && !dropdown.classList.contains('active')) {
+                    e.preventDefault();
+                    if(historyIndex < promptHistory.length-1) {
+                        historyIndex++;
+                        input.value = promptHistory[historyIndex];
+                    } else {
+                        historyIndex = promptHistory.length;
+                        input.value = '';
+                    }
+                }
+            });
+
+            // Hide on outside click
+            document.addEventListener('click', e => {
+                if(!e.target.closest('.prompt-container')) dropdown.classList.remove('active');
+            });
+        }
+
+        // --- Helpers ---
+        function showCSGLoading(show) {
+            const overlay = document.getElementById('loadingOverlay');
+            if(show) overlay.classList.remove('hidden');
+            else overlay.classList.add('hidden');
+        }
+
+        function showToast(msg, type = 'info') {
+            const container = document.getElementById('toastContainer');
+            const toast = document.createElement('div');
+            toast.className = 'toast';
+            const icon = type === 'success' ? 'fa-check-circle text-secondary' : type === 'error' ? 'fa-triangle-exclamation text-danger' : 'fa-info-circle text-accent';
+            toast.innerHTML = `<i class="fa-solid ${icon}"></i> <span>${msg}</span>`;
+            container.appendChild(toast);
+            setTimeout(() => {
+                toast.style.animation = 'slideDown 0.3s ease-in forwards';
+                setTimeout(() => toast.remove(), 300);
+            }, 3000);
+        }
+
+        function updateThemeColors() {
+            const isLight = document.body.classList.contains('light-theme');
+            
+            // 1. Update Fog Color
+            if (scene && scene.fog) {
+                scene.fog.color.setHex(isLight ? 0xf8fafc : 0x06080f);
+            }
+            
+            // 2. Recreate Grid Helper with proper colors
+            if (scene && gridHelper) {
+                const gridVisible = gridHelper.visible;
+                scene.remove(gridHelper);
+                gridHelper.geometry.dispose();
+                gridHelper.material.dispose();
+                
+                const gridColor1 = isLight ? 0x94a3b8 : 0x305090;
+                const gridColor2 = isLight ? 0xcbd5e1 : 0x1e325a;
+                gridHelper = new THREE.GridHelper(5000, 100, gridColor1, gridColor2);
+                gridHelper.material.opacity = isLight ? 0.4 : 0.3;
+                gridHelper.material.transparent = true;
+                gridHelper.visible = gridVisible;
+                scene.add(gridHelper);
+            }
+            
+            // 3. Update edge material color for contrast
+            if (edgeMat) {
+                edgeMat.color.setHex(isLight ? 0x0f172a : 0xffffff);
+                edgeMat.opacity = isLight ? 0.4 : 0.3;
+            }
+
+            // 4. Update hemisphere light ground color for light bouncing
+            if (hemiLight) {
+                hemiLight.groundColor.setHex(isLight ? 0xe2e8f0 : 0x0f172a);
+            }
+        }
+
+        // ==========================================
+        // 8. SETUP & ANIMATION LOOP
+        // ==========================================
+        
+        function setupEvents() {
+            document.getElementById('generateBtn').addEventListener('click', () => {
+                processPrompt(document.getElementById('promptInput').value);
+            });
+            
+            document.getElementById('exportBtn').addEventListener('click', exportBinarySTL);
+            
+            document.getElementById('clearSceneBtn').addEventListener('click', () => {
+                sceneObjects.forEach(obj => {
+                    scene.remove(obj.group);
+                    obj.mesh.geometry.dispose();
+                });
+                sceneObjects = [];
+                updateSceneList();
+                updateStats();
+                document.getElementById('exportBtn').disabled = true;
+                document.getElementById('clearSceneBtn').disabled = true;
+            });
+
+            // View Toggles
+            const toggle = (id, prop, action) => {
+                document.getElementById(id).addEventListener('click', e => {
+                    const btn = e.currentTarget;
+                    const isActive = !btn.classList.contains('active');
+                    btn.classList.toggle('active', isActive);
+                    action(isActive);
+                });
+            };
+
+            toggle('toggleGrid', 'grid', v => gridHelper.visible = v);
+            toggle('toggleEdges', 'edges', v => {
+                sceneObjects.forEach(o => {
+                    const edges = o.group.getObjectByName('edges');
+                    if(edges) edges.visible = v;
+                });
+            });
+            toggle('toggleDims', 'dims', v => {
+                sceneObjects.forEach(o => {
+                    const ann = o.group.getObjectByName('annotations');
+                    if(ann) ann.visible = v;
+                });
+            });
+            toggle('toggleRotate', 'rotate', v => {
+                controls.autoRotate = v;
+                controls.autoRotateSpeed = 2;
+            });
+            
+            document.getElementById('resetView').addEventListener('click', () => {
+                camera.position.set(500, 400, 600);
+                controls.target.set(0, 100, 0);
+            });
+            
+            document.getElementById('toggleTheme').addEventListener('click', () => {
+                currentMaterialIdx = (currentMaterialIdx + 1) % MATERIALS.length;
+                sceneObjects.forEach(o => {
+                    o.mesh.material = MATERIALS[currentMaterialIdx];
+                });
+                showToast(`Material updated to ${['Orange', 'Dark Metal', 'Glass', 'Ceramic'][currentMaterialIdx]}`);
+            });
+
+            document.getElementById('toggleDarkLight').addEventListener('click', e => {
+                const btn = e.currentTarget;
+                const isLight = document.body.classList.toggle('light-theme');
+                btn.classList.toggle('active', isLight);
+                
+                // Update icon
+                const icon = btn.querySelector('i');
+                if (isLight) {
+                    icon.className = 'fa-solid fa-sun';
+                } else {
+                    icon.className = 'fa-solid fa-moon';
+                }
+                
+                updateThemeColors();
+                showToast(isLight ? "Switched to Light Mode" : "Switched to Dark Mode");
+            });
+            
+            setupAutocomplete();
+        }
+
+        function animate() {
+            requestAnimationFrame(animate);
+            controls.update();
+            
+            // Pop animation for new objects
+            sceneObjects.forEach(obj => {
+                if (obj.group.scale.x < 1) {
+                    const s = obj.group.scale.x + (1 - obj.group.scale.x) * 0.15;
+                    obj.group.scale.set(s,s,s);
+                    // Update sprite scales to counter group scaling (keep them readable)
+                    const ann = obj.group.getObjectByName('annotations');
+                    if(ann) {
+                        ann.children.forEach(c => {
+                            if(c.isSprite) c.scale.set(0.15/s, 0.0375/s, 1);
+                        });
+                    }
+                }
+            });
+            
+            renderer.render(scene, camera);
+        }
+
+        // Boot
+        initScene();
+        setupEvents();
+        animate();
+        
+        // Focus prompt and load default shape (gear) to showcase capabilities
+        setTimeout(() => {
+            document.getElementById('promptInput').focus();
+            processPrompt("gear");
+        }, 100);
+        
+    </script>
+</body>
+</html>
